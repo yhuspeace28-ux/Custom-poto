@@ -1,0 +1,101 @@
+package com.fotorapi.app.ui
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PorterDuff
+import android.util.AttributeSet
+import android.view.MotionEvent
+import android.view.View
+
+class DrawingView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : View(context, attrs, defStyleAttr) {
+
+    private val path = Path()
+    private val drawPaint = Paint()
+    private val maskPaint = Paint()
+
+    private var maskBitmap: Bitmap? = null
+    private var maskCanvas: Canvas? = null
+
+    var strokeWidthSize: Float = 40f
+        set(value) {
+            field = value
+            drawPaint.strokeWidth = value
+            maskPaint.strokeWidth = value
+        }
+
+    init {
+        drawPaint.apply {
+            color = Color.parseColor("#80FF0000")
+            isAntiAlias = true
+            isDither = true
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
+            strokeWidth = strokeWidthSize
+        }
+
+        maskPaint.apply {
+            color = Color.WHITE
+            isAntiAlias = true
+            isDither = true
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
+            strokeWidth = strokeWidthSize
+        }
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w > 0 && h > 0) {
+            maskBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            maskCanvas = Canvas(maskBitmap!!).apply {
+                drawColor(Color.BLACK)
+            }
+        }
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        canvas.drawPath(path, drawPaint)
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        val x = event.x
+        val y = event.y
+
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                path.moveTo(x, y)
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                path.lineTo(x, y)
+            }
+            MotionEvent.ACTION_UP -> {
+                maskCanvas?.drawPath(path, maskPaint)
+            }
+            else -> return false
+        }
+
+        invalidate()
+        return true
+    }
+
+    fun getMaskBitmap(): Bitmap? = maskBitmap
+
+    fun clearCanvas() {
+        path.reset()
+        maskCanvas?.drawColor(Color.BLACK, PorterDuff.Mode.CLEAR)
+        maskCanvas?.drawColor(Color.BLACK)
+        invalidate()
+    }
+}
