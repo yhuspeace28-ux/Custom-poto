@@ -1,0 +1,74 @@
+package com.fotorapi.app
+
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import android.os.Bundle
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import com.fotorapi.app.ai.InpainterEngine
+import com.fotorapi.app.ui.DrawingView
+import kotlinx.coroutines.launch
+
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var inpainterEngine: InpainterEngine
+    private lateinit var drawingView: DrawingView
+    private lateinit var imgOriginal: ImageView
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        inpainterEngine = InpainterEngine(this)
+        try {
+            inpainterEngine.initModel("lama_inpainting_fp16.onnx")
+        } catch (e: Exception) {
+            Toast.makeText(this, "Model AI belum ada di assets!", Toast.LENGTH_LONG).show()
+        }
+
+        drawingView = findViewById(R.id.drawingView)
+        imgOriginal = findViewById(R.id.imgOriginal)
+
+        val btnClear = findViewById<Button>(R.id.btnClear)
+        val btnProcessAI = findViewById<Button>(R.id.btnProcessAI)
+
+        btnClear.setOnClickListener {
+            drawingView.clearCanvas()
+        }
+
+        btnProcessAI.setOnClickListener {
+            val drawable = imgOriginal.drawable
+            if (drawable is BitmapDrawable) {
+                val originalBitmap = drawable.bitmap
+                val maskBitmap = drawingView.getMaskBitmap()
+
+                if (maskBitmap != null) {
+                    processImage(originalBitmap, maskBitmap)
+                }
+            } else {
+                Toast.makeText(this, "Pilih foto terlebih dahulu!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun processImage(originalBitmap: Bitmap, maskBitmap: Bitmap) {
+        lifecycleScope.launch {
+            Toast.makeText(this@MainActivity, "Memproses AI...", Toast.LENGTH_SHORT).show()
+            try {
+                val resultBitmap = inpainterEngine.removeObject(originalBitmap, maskBitmap)
+                imgOriginal.setImageBitmap(resultBitmap)
+                drawingView.clearCanvas()
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, "Gagal memproses gambar: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        inpainterEngine.close()
+    }
+}
